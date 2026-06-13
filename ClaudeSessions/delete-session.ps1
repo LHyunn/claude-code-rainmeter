@@ -44,9 +44,9 @@ try {
     Add-Type -AssemblyName System.Windows.Forms | Out-Null
     $hdr = (($removed -split "`n")[0]).TrimEnd("`r")
     $tm = [regex]::Match($removed, '(?m)^\*\*(.*?)\*\*')
-    $title = if ($tm.Success) { $tm.Groups[1].Value } else { '(제목 없음)' }
-    $msg = "이 세션을 목록에서 삭제할까요?`n`n" + $title + "`n" + $hdr + "`n`n복구본은 deleted.md 에 보관됩니다."
-    $ans = [System.Windows.Forms.MessageBox]::Show($msg, 'ClaudeSessions — 세션 삭제',
+    $title = if ($tm.Success) { $tm.Groups[1].Value } else { '(untitled)' }
+    $msg = "Delete this session from the list?`n`n" + $title + "`n" + $hdr + "`n`nA backup is kept in deleted.md."
+    $ans = [System.Windows.Forms.MessageBox]::Show($msg, 'ClaudeSessions — Delete session',
       [System.Windows.Forms.MessageBoxButtons]::YesNo, [System.Windows.Forms.MessageBoxIcon]::Warning)
     if ($ans -ne [System.Windows.Forms.DialogResult]::Yes) { return }
   }

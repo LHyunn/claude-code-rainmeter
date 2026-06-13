@@ -39,12 +39,12 @@ A scrollable list of your recent Claude Code sessions. Two pieces:
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
-│  ✳  Claude Code                                  오늘 7 · 전체 58          │
+│  ✳  Claude Code                                   Today 7 · Total 58       │
 │ ────────────────────────────────────────────────────────────────────────  │
-│  Rebuild entire pipeline from scratch          00:12 – 08:48 · 8시간 36분  │  ← title + time·duration
+│  Rebuild entire pipeline from scratch            00:12 – 08:48 · 8h 36m    │  ← title + time·duration
 │  C:\Users\you\Desktop\my-project                                           │  ← full working directory
 │                                                                            │
-│  Review report and plan next steps      06/11 22:05 → 06/12 00:11 · 2시간  │
+│  Review report and plan next steps        06/11 22:05 → 06/12 00:11 · 2h   │
 │  C:\Users\you\Desktop\another-project                                      │
 └──────────────────────────────────────────────────────────────────────────┘
 ```
@@ -127,9 +127,9 @@ The list fills in as you open/close sessions **after** the hook is installed (it
 
 Three usage gauges, updated every 5 minutes:
 
-- **현재 세션 · 5시간 창** — current 5‑hour session window
-- **주간 사용량 · 전체 모델** — 7‑day, all models
-- **주간 사용량 · Sonnet** — 7‑day, Sonnet
+- **Current session · 5-hour window** — the current 5‑hour session window
+- **Weekly usage · all models** — 7‑day, all models
+- **Weekly usage · Sonnet** — 7‑day, Sonnet
 
 Each shows a big percentage, a progress bar, a "resets in …" countdown, and a sparkline of usage over time. Colors shift from accent → amber (≥75%) → red (≥90%).
 
@@ -172,9 +172,9 @@ The poller is read‑only with respect to your credentials, never writes the tok
 
 ### Troubleshooting
 
-- **Stuck on "대기 중…"** — the poller hasn't produced data. Check Task Scheduler → `ClaudeUsageWidget` ran (Last Result `0`), `data/current.json` exists, and Node is installed (the launcher resolves `node` from `PATH`, falling back to `C:\Program Files\nodejs\node.exe`).
-- **"⚠ 토큰 만료"** — the stored token expired; run Claude Code once to refresh it (the widget never modifies the token itself).
-- **"⚠ 데이터 지연"** — no fresh data for >11 min; the task probably isn't running.
+- **Stuck on "Waiting…"** — the poller hasn't produced data. Check Task Scheduler → `ClaudeUsageWidget` ran (Last Result `0`), `data/current.json` exists, and Node is installed (the launcher resolves `node` from `PATH`, falling back to `C:\Program Files\nodejs\node.exe`).
+- **"⚠ Token expired"** — the stored token expired; run Claude Code once to refresh it (the widget never modifies the token itself).
+- **"⚠ Data delayed"** — no fresh data for >11 min; the task probably isn't running.
 - **Numbers differ slightly from claude.ai** — timing/rounding; the page is the source of truth.
 
 ---
@@ -247,7 +247,7 @@ Windows · [Rainmeter](https://www.rainmeter.net/) · [Node.js](https://nodejs.o
 3. 5분 폴링 작업 등록: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\setup-usage-task.ps1` (관리자 불필요). 제거: `Unregister-ScheduledTask -TaskName 'ClaudeUsageWidget' -Confirm:$false`.
 4. Rainmeter에서 로드. 첫 수집 후 ~30초 내 표시.
 
-**문제 해결:** "대기 중…"이 계속 → 작업 실행/`current.json`/Node 확인. "토큰 만료" → Claude Code 한 번 실행해 토큰 갱신. "데이터 지연" → 작업 미실행.
+**문제 해결:** "Waiting…"이 계속되면 → 예약 작업 실행 여부·`current.json`·Node 확인. "Token expired" → Claude Code 한 번 실행해 토큰 갱신. "Data delayed" → 작업 미실행.
 
 ### 설정
 - 색상/폭: 각 위젯 `.ini`의 `[Variables]`. 표시 개수: ClaudeSessions `parser.lua`의 `MAXROWS`(기본 8). 폴링 주기: ClaudeUsage 예약 작업.

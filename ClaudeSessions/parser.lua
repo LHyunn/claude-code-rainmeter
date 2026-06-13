@@ -63,7 +63,7 @@ local function timeline(e)
   else
     t = e.endt
   end
-  if e.dur ~= '' then t = t .. '  ·  ' .. e.dur end
+  if e.dur ~= '' then t = t .. '  ·  ' .. (e.dur:gsub('일', 'd'):gsub('시간', 'h'):gsub('분', 'm')) end
   return t
 end
 
@@ -137,8 +137,8 @@ function RealUpdate()
     if e then
       shown = shown + 1
       local title = e.title
-      if title == '' or title == '(제목 없음)' then
-        title = e.bullets[1] or '(내용 없음)'
+      if title == '' or title == '(제목 없음)' or title == '(untitled)' then
+        title = e.bullets[1] or '(no content)'
       end
       -- 폭 제한·넘침 방지는 ini의 W+ClipString이 픽셀 단위로 처리(글자수 추정보다 정확).
       v[#v + 1] = 'Title' .. i .. '=' .. sanitize(title)
@@ -151,8 +151,8 @@ function RealUpdate()
     else
       if i == 1 then
         shown = 1
-        v[#v + 1] = 'Title1=아직 기록된 세션이 없습니다'
-        v[#v + 1] = 'Meta1=세션을 닫으면 자동으로 기록됩니다'
+        v[#v + 1] = 'Title1=No sessions logged yet'
+        v[#v + 1] = 'Meta1=Sessions are logged automatically when they close'
         v[#v + 1] = 'Path1='
         v[#v + 1] = 'Id1='
         v[#v + 1] = 'Cwd1='
@@ -169,9 +169,9 @@ function RealUpdate()
       end
     end
   end
-  local stats = '오늘 ' .. nToday .. '  ·  전체 ' .. #list
+  local stats = 'Today ' .. nToday .. '  ·  Total ' .. #list
   if ofs > 0 then
-    stats = '⌃ ' .. (ofs + 1) .. '–' .. math.min(#list, ofs + MAXROWS) .. ' 표시 중  ·  ' .. stats
+    stats = '⌃ ' .. (ofs + 1) .. '–' .. math.min(#list, ofs + MAXROWS) .. ' shown  ·  ' .. stats
   end
   v[#v + 1] = 'HeaderStats=' .. stats
   v[#v + 1] = 'ScrollOfs=' .. ofs

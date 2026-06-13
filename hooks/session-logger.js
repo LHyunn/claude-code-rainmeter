@@ -103,16 +103,16 @@ function main() {
   let dur = '';
   if (start && !isNaN(start)) {
     const m = Math.max(0, Math.round((end - start) / 60000));
-    dur = m >= 60 ? ` (${Math.floor(m / 60)}시간 ${m % 60}분)` : ` (${m}분)`;
+    dur = m >= 60 ? ` (${Math.floor(m / 60)}h ${m % 60}m)` : ` (${m}m)`;
   }
   const cwd = input.cwd || (state && state.cwd) || '?';
 
   const entryLines = [
     `## ${start && !isNaN(start) ? fmt(start) : '????'} → ${fmt(end)}${dur} — \`${cwd}\``,
-    `**${title || '(제목 없음)'}**  ·  종료: ${input.reason || '?'} · 프롬프트 ${nPrompts}개 · \`${sid.slice(0, 8)}\``
+    `**${title || '(untitled)'}**  ·  exit: ${input.reason || '?'} · ${nPrompts} prompts · \`${sid.slice(0, 8)}\``
   ];
   for (const p of prompts) entryLines.push(`- ${p}`);
-  if (nPrompts > prompts.length) entryLines.push(`- … 외 ${nPrompts - prompts.length}개`);
+  if (nPrompts > prompts.length) entryLines.push(`- … +${nPrompts - prompts.length} more`);
   entryLines.push(`<!-- id:${sid} -->`); // 위젯 더블클릭 resume용 (마크다운에선 비표시)
   entryLines.push('');
 

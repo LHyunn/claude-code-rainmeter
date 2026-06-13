@@ -6,9 +6,9 @@ local CHART_H = 86
 local BAR_W = 240
 -- 메트릭: {키, 라벨, 차트 시간창(ms)}
 local METRICS = {
-  { id = '5', hk = 'h5', label = '현재 세션  ·  5시간 창', win = 6 * 3600 * 1000 },
-  { id = '7', hk = 'd7', label = '주간 사용량  ·  전체 모델', win = 7 * 86400 * 1000 },
-  { id = 'S', hk = 's7', label = '주간 사용량  ·  Sonnet', win = 7 * 86400 * 1000 },
+  { id = '5', hk = 'h5', label = 'Current session  ·  5-hour window', win = 6 * 3600 * 1000 },
+  { id = '7', hk = 'd7', label = 'Weekly usage  ·  all models', win = 7 * 86400 * 1000 },
+  { id = 'S', hk = 's7', label = 'Weekly usage  ·  Sonnet', win = 7 * 86400 * 1000 },
 }
 
 local function readAll(p, mode)
@@ -50,11 +50,11 @@ end
 local function countdown(ms, now)
   if not ms then return '' end
   local s = math.floor((ms - now) / 1000)
-  if s <= 0 then return '리셋 중…' end
+  if s <= 0 then return 'resetting…' end
   local d = math.floor(s / 86400); local h = math.floor((s % 86400) / 3600); local m = math.floor((s % 3600) / 60)
-  if d > 0 then return string.format('%d일 %d시간 후 리셋', d, h) end
-  if h > 0 then return string.format('%d시간 %d분 후 리셋', h, m) end
-  return string.format('%d분 후 리셋', m)
+  if d > 0 then return string.format('resets in %dd %dh', d, h) end
+  if h > 0 then return string.format('resets in %dh %dm', h, m) end
+  return string.format('resets in %dm', m)
 end
 
 local function levelRGB(u)
@@ -154,18 +154,18 @@ function RealUpdate()
       set('Area' .. id, '0,86 | LineTo 0,86 | ClosePath 1')
       set('Dot' .. id .. 'X', '0')
       set('Dot' .. id .. 'Y', '86')
-      set('ChartNote' .. id, '데이터 수집 중…')
+      set('ChartNote' .. id, 'collecting data…')
     end
   end
 
   -- 헤더 상태
   local note = ''
-  if status == 'token_expired' then note = '⚠ 토큰 만료 — Claude Code 실행 시 자동 갱신'
-  elseif status ~= 'ok' and status ~= 'none' then note = '⚠ 가져오기 실패 (' .. status .. ')'
-  elseif status == 'none' then note = '대기 중…' end
-  local upd = fetched and ('갱신 ' .. fmtClock(fetched)) or ''
+  if status == 'token_expired' then note = '⚠ Token expired — run Claude Code to refresh'
+  elseif status ~= 'ok' and status ~= 'none' then note = '⚠ Fetch failed (' .. status .. ')'
+  elseif status == 'none' then note = 'Waiting…' end
+  local upd = fetched and ('updated ' .. fmtClock(fetched)) or ''
   -- 데이터가 오래되면(>11분) 흐릿 표시용 플래그
-  if checked and (realNow - checked) > 11 * 60 * 1000 and note == '' then note = '⚠ 데이터 지연' end
+  if checked and (realNow - checked) > 11 * 60 * 1000 and note == '' then note = '⚠ Data delayed' end
   set('HeaderNote', (note ~= '' and (note .. '   ') or '') .. upd)
 
   local content = u16(table.concat(v, '\r\n') .. '\r\n')
