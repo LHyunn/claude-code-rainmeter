@@ -35,6 +35,8 @@ A scrollable list of your recent Claude Code sessions. Two pieces:
 
 ### What it looks like
 
+![ClaudeSessions — recent Claude Code sessions; double-click to resume, right-click to delete](docs/claudesessions.png)
+
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
 │  ✳  Claude Code                                  오늘 7 · 전체 58          │
@@ -120,6 +122,8 @@ The list fills in as you open/close sessions **after** the hook is installed (it
 
 > [!WARNING]
 > See the [top‑of‑README warning](#claude-code-rainmeter-widgets) — undocumented endpoint, use at your own risk.
+
+![ClaudeUsage — 5-hour / 7-day / Sonnet usage gauges with sparklines](docs/claudeusage.png)
 
 Three usage gauges, updated every 5 minutes:
 
