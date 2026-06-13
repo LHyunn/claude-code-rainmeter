@@ -1,19 +1,39 @@
-# Claude Sessions — Rainmeter widget
+# Claude Code Rainmeter widgets
 
-A desktop widget that shows your recent **[Claude Code](https://claude.com/claude-code)** sessions on your Windows desktop, and lets you **resume** any of them with a double‑click or **delete** them with a right‑click.
+Two desktop widgets for **[Claude Code](https://claude.com/claude-code)** on Windows, built with [Rainmeter](https://www.rainmeter.net/):
 
-It is two pieces working together:
+| Widget | What it shows | Interact |
+|---|---|---|
+| **ClaudeSessions** | Your recent Claude Code sessions (title, time, working directory) | Double‑click to **resume**, right‑click to **delete** |
+| **ClaudeUsage** | Your claude.ai subscription usage (5‑hour / 7‑day / Sonnet) with gauges, bars, reset countdowns, and sparklines | Click to open the usage page |
 
-1. A small **session logger** — a Claude Code `SessionStart` / `SessionEnd` hook that appends one entry per session to a monthly Markdown file under `~/.claude/session-log/`.
-2. A **Rainmeter skin** that reads those files and renders them as a scrollable, interactive list.
+You can install either one independently — they share nothing except this repo.
 
 > 한국어 설명은 맨 아래 [한국어](#한국어) 섹션을 참고하세요.
 
+> [!WARNING]
+> **ClaudeUsage uses an _undocumented_ Anthropic endpoint.** It reads the OAuth token that Claude Code stored locally and calls `https://api.anthropic.com/api/oauth/usage` identifying as the CLI. This is **not** an official/supported API: it can break without notice, and automated reuse of the first‑party token **may violate Anthropic's terms**. Use at your own risk. The token is only ever **read** (never modified), only sent over HTTPS to `api.anthropic.com`, and **never stored or logged** by this widget. If in doubt, just use the official page at <https://claude.ai/settings/usage>. **ClaudeSessions has no such concern** — it only reads local log files.
+
 ---
 
-## What it looks like
+## Requirements
 
-Each row is a session, newest first:
+| | ClaudeSessions | ClaudeUsage |
+|---|:---:|:---:|
+| **Windows** + **[Rainmeter](https://www.rainmeter.net/)** 4.x | ✅ | ✅ |
+| **[Node.js](https://nodejs.org/)** (LTS) | ✅ (for the log hook) | ✅ (for the poller) |
+| **[Claude Code](https://claude.com/claude-code)** | ✅ (`claude` CLI for resume) | ✅ (signed in, for the token) |
+
+---
+
+# ClaudeSessions
+
+A scrollable list of your recent Claude Code sessions. Two pieces:
+
+1. A **session logger** — a Claude Code `SessionStart` / `SessionEnd` hook (`hooks/session-logger.js`) that appends one entry per session to `~/.claude/session-log/YYYY-MM.md`.
+2. A **Rainmeter skin** that reads those files and renders them.
+
+### What it looks like
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
@@ -24,29 +44,19 @@ Each row is a session, newest first:
 │                                                                            │
 │  Review report and plan next steps      06/11 22:05 → 06/12 00:11 · 2시간  │
 │  C:\Users\you\Desktop\another-project                                      │
-│  …                                                                         │
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
-- **Line 1** — session title (AI‑generated or your custom title) on the left, time range and duration on the right.
-- **Line 2** — the full working‑directory path the session ran in.
+All text is hard‑clipped to the panel width, so nothing spills outside the widget regardless of length.
 
-All text is hard‑clipped to the panel width, so nothing ever spills outside the widget regardless of length.
+### Features
 
----
+- **Resume** — double‑click a row → opens a terminal in the session's original directory and runs `claude --resume <id>`.
+- **Delete** — right‑click a row → confirmation, then removes that log entry (backup kept in `deleted.md`, reversible). Only the *log entry* is removed; your actual Claude session is untouched and still resumable from a terminal.
+- **Scroll** with the mouse wheel; **middle‑click** jumps to the newest.
+- **Open the log** by clicking the header.
 
-## Features
-
-- **Resume a session** — double‑click a row. Opens a terminal in the session's original directory and runs `claude --resume <id>`.
-- **Delete a session entry** — right‑click a row. Shows a confirmation, then removes that entry from the log (a backup is kept in `deleted.md`, so it is reversible). This only removes the *log entry* — your actual Claude session data is untouched, so `claude --resume` from a terminal still works.
-- **Scroll** — mouse wheel scrolls through older sessions; middle‑click jumps back to the newest.
-- **Open the log** — click the header (or use the right‑click menu) to open the current month's Markdown log / the log folder.
-- **Korean UI** by default (the widget and logger emit Korean labels). See [Translating the UI](#translating-the-ui) to change it.
-- **Portable** — paths resolve automatically from `%USERPROFILE%`; no per‑machine path editing required for the common case.
-
----
-
-## How it works
+### How it works
 
 ```
 Claude Code session starts/ends
@@ -58,275 +68,188 @@ hooks/session-logger.js  ──appends──►  ~/.claude/session-log/YYYY-MM.m
                                   ClaudeSessions/parser.lua  (Rainmeter Script measure)
                                                   │  writes (UTF-16 LE)
                                                   ▼
-                                  ClaudeSessions/data.inc  ──@Include──►  ClaudeSessions.ini  (rendered)
+                                  data.inc  ──@Include──►  ClaudeSessions.ini  (rendered)
 ```
 
-- **`session-logger.js`** runs on every session start (records the start time) and end (reads the transcript, extracts the title + first few prompts + duration, and appends a Markdown entry). Sessions that are opened and closed with no prompts are skipped.
-- **`parser.lua`** is a Rainmeter Script measure. It parses the current and previous month's log, builds the row variables, and writes them to `data.inc` encoded as UTF‑16 LE (this avoids Korean text corruption at the Lua↔Rainmeter boundary). It only rewrites `data.inc` when the content actually changes, then refreshes the skin.
-- **`ClaudeSessions.ini`** `@Include`s `data.inc` and renders the meters. Every text meter uses a fixed width + `ClipString`, so long titles/paths are clipped (with `…`) instead of overflowing.
+`parser.lua` parses the current + previous month's log, writes the row variables to `data.inc` (UTF‑16 LE, to keep Korean text intact), and only refreshes when content changes. Every text meter uses a fixed width + `ClipString`, so long titles/paths clip with `…` instead of overflowing.
 
 ### Log entry format
-
-Each entry in `YYYY-MM.md` looks like:
 
 ```markdown
 ## 2026-06-12 09:35 → 2026-06-12 10:32 (57분) — `C:\Users\you\Desktop\my-project`
 **Resolve directory trust prompt**  ·  종료: clear · 프롬프트 2개 · `58103caf`
 - first prompt text (truncated to ~120 chars)…
-- second prompt text…
 <!-- id:58103caf-f032-4672-99ef-4021e0e7413c -->
 ```
 
-The `<!-- id:... -->` comment holds the full session id used for resume/delete. The same id can legitimately appear in multiple entries (one per resume), so delete matches on **id + start time** to remove exactly the entry you clicked.
+The `<!-- id:... -->` holds the full session id used for resume/delete. The same id can appear in several entries (one per resume), so delete matches on **id + start time** to remove exactly the entry you clicked.
+
+### Install
+
+1. **Skin** — copy the `ClaudeSessions` folder to `%USERPROFILE%\Documents\Rainmeter\Skins\ClaudeSessions`. Keep the folder name (right‑click delete refreshes the config by that name).
+2. **Hook** — copy `hooks/session-logger.js` to `%USERPROFILE%\.claude\hooks\session-logger.js`, and add this to `%USERPROFILE%\.claude\settings.json` (merge into an existing `"hooks"` block if present):
+
+   ```json
+   {
+     "hooks": {
+       "SessionStart": [
+         { "hooks": [ { "type": "command", "command": "node", "args": ["C:\\Users\\YOUR_NAME\\.claude\\hooks\\session-logger.js", "start"], "timeout": 15 } ] }
+       ],
+       "SessionEnd": [
+         { "hooks": [ { "type": "command", "command": "node", "args": ["C:\\Users\\YOUR_NAME\\.claude\\hooks\\session-logger.js", "end"], "timeout": 30 } ] }
+       ]
+     }
+   }
+   ```
+
+   Replace `YOUR_NAME`; if `node` isn't on `PATH`, use the full `node.exe` path. **Restart Claude Code** so it loads the hook.
+3. **Load** the skin in Rainmeter (Refresh all → Manage → ClaudeSessions.ini).
+
+The list fills in as you open/close sessions **after** the hook is installed (it starts empty).
+
+> Or run **`install.ps1`** from the repo root — it copies the skin + hook into place and prints the exact `settings.json` snippet (it does not edit `settings.json` for you).
+
+### Configuration
+
+- `ClaudeSessions/ClaudeSessions.ini` → `[Variables]`: `Width`, `Pad`, and the `Col*` colors.
+- `ClaudeSessions/parser.lua` → `MAXROWS` (default `8`, visible rows). If you change it, add/remove matching `[MeterTitle*]`/`[MeterTime*]`/`[MeterPath*]` sections in the `.ini`.
 
 ---
 
-## Requirements
+# ClaudeUsage
 
-| Requirement | Why | Notes |
-|---|---|---|
-| **Windows** | Rainmeter is Windows‑only | — |
-| **[Rainmeter](https://www.rainmeter.net/)** | renders the widget | 4.x |
-| **[Node.js](https://nodejs.org/)** | runs the session‑logger hook | any recent LTS; the widget itself needs no Node |
-| **[Claude Code](https://claude.com/claude-code)** | the thing being logged | the `claude` CLI is needed for *resume* |
+> [!WARNING]
+> See the [top‑of‑README warning](#claude-code-rainmeter-widgets) — undocumented endpoint, use at your own risk.
 
----
+Three usage gauges, updated every 5 minutes:
 
-## Installation
+- **현재 세션 · 5시간 창** — current 5‑hour session window
+- **주간 사용량 · 전체 모델** — 7‑day, all models
+- **주간 사용량 · Sonnet** — 7‑day, Sonnet
 
-### 1. Install the skin
+Each shows a big percentage, a progress bar, a "resets in …" countdown, and a sparkline of usage over time. Colors shift from accent → amber (≥75%) → red (≥90%).
 
-Copy the **`ClaudeSessions`** folder into your Rainmeter skins folder:
+### How it works
 
 ```
-%USERPROFILE%\Documents\Rainmeter\Skins\ClaudeSessions
+Task Scheduler ("ClaudeUsageWidget", every 5 min)
+        │
+        ▼
+poll-hidden.vbs ──runs hidden──► usage-poll.js
+        │  reads ~/.claude/.credentials.json (READ-ONLY)
+        │  GET https://api.anthropic.com/api/oauth/usage   ← undocumented
+        ▼
+data/current.json  +  data/history.jsonl (8-day series)
+        │  read every ~30s
+        ▼
+usage.lua (Rainmeter Script measure) ──writes──► data.inc ──@Include──► ClaudeUsage.ini
 ```
 
-> Keep the folder name **`ClaudeSessions`** — the right‑click delete refreshes the Rainmeter config by that exact name.
+The poller is read‑only with respect to your credentials, never writes the token anywhere, and writes its output files atomically. `usage.lua` renders only derived numbers/charts.
 
-### 2. Install the session‑logger hook
+### Install
 
-Copy `hooks/session-logger.js` to:
+1. **Sign in to Claude Code** (so `~/.claude/.credentials.json` exists) and install **Node.js**.
+2. **Skin** — copy the `ClaudeUsage` folder to `%USERPROFILE%\Documents\Rainmeter\Skins\ClaudeUsage` (keep the name).
+3. **Polling task** — register the 5‑minute task:
 
-```
-%USERPROFILE%\.claude\hooks\session-logger.js
-```
+   ```powershell
+   powershell -NoProfile -ExecutionPolicy Bypass -File scripts\setup-usage-task.ps1
+   ```
 
-Then add the hook to `%USERPROFILE%\.claude\settings.json`. If the file already has a `"hooks"` block, merge these two arrays into it:
+   This creates a per‑user scheduled task `ClaudeUsageWidget` that runs `poll-hidden.vbs` every 5 minutes (no admin needed). To remove it later: `Unregister-ScheduledTask -TaskName 'ClaudeUsageWidget' -Confirm:$false`.
+4. **Load** the skin in Rainmeter. It populates within ~30s of the first successful fetch.
 
-```json
-{
-  "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node",
-            "args": ["C:\\Users\\YOUR_NAME\\.claude\\hooks\\session-logger.js", "start"],
-            "timeout": 15
-          }
-        ]
-      }
-    ],
-    "SessionEnd": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node",
-            "args": ["C:\\Users\\YOUR_NAME\\.claude\\hooks\\session-logger.js", "end"],
-            "timeout": 30
-          }
-        ]
-      }
-    ]
-  }
-}
-```
+### Configuration
 
-- Replace `YOUR_NAME` with your Windows username (or use the absolute path to the file).
-- If `node` is not on your `PATH`, replace `"node"` with the full path, e.g. `"C:\\Program Files\\nodejs\\node.exe"`.
+- `ClaudeUsage/ClaudeUsage.ini` → `[Variables]`: `Width`, `Pad`, colors.
+- `ClaudeUsage/usage.lua` → the `METRICS` table (labels and chart time‑windows).
+- Poll interval — edit the scheduled task's repetition (default 5 min).
 
-> Or run `install.ps1` (see [Quick install](#quick-install)) to copy the files and print the exact snippet for you.
+### Troubleshooting
 
-### 3. Load the widget
-
-In Rainmeter, refresh (right‑click the tray icon → **Refresh all**) and load **ClaudeSessions / ClaudeSessions.ini** from *Manage*.
-
-### 4. Start using Claude Code
-
-The widget logs sessions **from the moment the hook is installed onward** — it starts empty and fills in as you open and close Claude Code sessions. (Sessions that ran before the hook existed are not shown.)
-
-### Quick install
-
-From the repo root in PowerShell:
-
-```powershell
-.\install.ps1
-```
-
-It copies the skin and the hook into place and prints the `settings.json` snippet to paste. It does **not** edit `settings.json` automatically (to avoid corrupting your config).
-
----
-
-## Usage
-
-| Action | Result |
-|---|---|
-| **Double‑click** a row | Resume that session (`claude --resume`) in its original directory |
-| **Right‑click** a row | Delete that log entry (with confirmation; backup kept) |
-| **Mouse wheel** | Scroll through older sessions |
-| **Middle‑click** | Jump back to the newest session |
-| **Click the header** | Open the current month's log file |
-
----
-
-## Configuration
-
-Everything is plain text — edit and refresh the skin.
-
-**`ClaudeSessions/ClaudeSessions.ini`** → `[Variables]`:
-
-| Variable | Default | Meaning |
-|---|---|---|
-| `Width` | `1080` | widget width (px) |
-| `Pad` | `24` | inner padding |
-| `ColBg`, `ColStroke`, `ColAccent`, `ColTitle`, `ColMeta`, `ColDivider` | — | colors (`R,G,B,A`) |
-
-**`ClaudeSessions/parser.lua`**:
-
-| Setting | Default | Meaning |
-|---|---|---|
-| `MAXROWS` | `8` | how many sessions are visible at once |
-
-Row layout (title/time/path widths, fonts) lives in the `[MeterTitle*]` / `[MeterTime*]` / `[MeterPath*]` sections of the `.ini`. If you change `MAXROWS`, add or remove matching row sections.
-
-### Translating the UI
-
-The Korean strings live in two places:
-
-- **`parser.lua`** — labels like `아직 기록된 세션이 없습니다`, `오늘`, `전체`, and the time/duration formatting in `timeline()`.
-- **`session-logger.js`** — duration text (`시간` / `분`) and the entry header (`종료:`, `프롬프트`, `개`).
-
-Replace those literals with your language. Keep `parser.lua` / `data.inc` as UTF‑16 LE and `delete-session.ps1` as UTF‑8 **with BOM** so non‑ASCII text isn't corrupted.
-
----
-
-## Troubleshooting
-
-**The widget is empty / says "아직 기록된 세션이 없습니다".**
-- It only shows sessions logged after the hook was installed — open and close a Claude Code session, then wait up to ~60s (or refresh the skin).
-- Check that `~/.claude/session-log/YYYY-MM.md` exists and is growing. If not, the hook isn't firing: verify `settings.json`, that `node` resolves, and **restart Claude Code** so it reloads hooks.
-- Look for `~/.claude/session-log/lua-error.txt` (parser error) or `delete-error.txt` (delete error).
-
-**The widget doesn't update.**
-- The parser runs every ~60s. Refresh the skin to force an update.
-
-**Double‑click does nothing / resume fails.**
-- `claude` must be on your `PATH`, or installed at `%USERPROFILE%\.local\bin\claude.exe`. Otherwise edit `resume.ps1`.
-- A session can only be resumed if its original working directory still exists.
-
-**Right‑click delete does nothing.**
-- Rainmeter must be installed at `C:\Program Files\Rainmeter\Rainmeter.exe` for the auto‑refresh after delete. For other locations, edit the `$rm` path in `delete-session.ps1`. (The deletion itself still works; only the immediate refresh is affected.)
-
-**Korean text shows as boxes/garbage.**
-- File encodings matter: `ClaudeSessions.ini` and `data.inc` must be UTF‑16 LE; `delete-session.ps1` must be UTF‑8 with BOM. Re‑download the files if your editor re‑saved them in a different encoding.
-
----
-
-## Privacy & security
-
-- Everything is **local**. The widget reads only `~/.claude/session-log/*.md`; nothing is sent anywhere.
-- Those log files contain your **session titles, working‑directory paths, and the first ~120 characters of up to 3 prompts per session**. Treat the folder as you would your shell history. Don't commit it or sync it to shared/cloud locations if that's sensitive.
-- Deleting a row removes its log entry (archived to `deleted.md`); it does **not** delete the underlying Claude session, which remains resumable from a terminal.
-
----
-
-## Uninstall
-
-1. In Rainmeter, unload the skin and delete `Documents\Rainmeter\Skins\ClaudeSessions`.
-2. Remove the `SessionStart` / `SessionEnd` blocks you added to `~/.claude/settings.json`, and delete `~/.claude/hooks/session-logger.js`.
-3. Optionally delete `~/.claude/session-log/` (your logged history).
+- **Stuck on "대기 중…"** — the poller hasn't produced data. Check Task Scheduler → `ClaudeUsageWidget` ran (Last Result `0`), `data/current.json` exists, and Node is installed (the launcher resolves `node` from `PATH`, falling back to `C:\Program Files\nodejs\node.exe`).
+- **"⚠ 토큰 만료"** — the stored token expired; run Claude Code once to refresh it (the widget never modifies the token itself).
+- **"⚠ 데이터 지연"** — no fresh data for >11 min; the task probably isn't running.
+- **Numbers differ slightly from claude.ai** — timing/rounding; the page is the source of truth.
 
 ---
 
 ## Repo layout
 
 ```
-claude-sessions-rainmeter/
-├─ ClaudeSessions/            # the Rainmeter skin (install into Skins/)
-│  ├─ ClaudeSessions.ini      #   layout & rendering (UTF-16 LE)
+claude-code-rainmeter/
+├─ ClaudeSessions/            # skin → Documents\Rainmeter\Skins\ClaudeSessions
+│  ├─ ClaudeSessions.ini      #   layout (UTF-16 LE)
 │  ├─ parser.lua              #   reads logs → writes data.inc
-│  ├─ data.inc                #   generated variables (placeholder shipped)
+│  ├─ data.inc                #   generated (placeholder shipped)
 │  ├─ resume.ps1              #   double-click → claude --resume
 │  └─ delete-session.ps1      #   right-click → delete entry (UTF-8 BOM)
+├─ ClaudeUsage/               # skin → Documents\Rainmeter\Skins\ClaudeUsage
+│  ├─ ClaudeUsage.ini         #   layout (UTF-16 LE)
+│  ├─ usage.lua               #   reads data → writes data.inc
+│  ├─ usage-poll.js           #   Node poller (reads token, calls usage API)
+│  ├─ poll-hidden.vbs         #   runs the poller hidden
+│  └─ data/                   #   current.json + history.jsonl (generated, git-ignored)
 ├─ hooks/
-│  └─ session-logger.js       # Claude Code SessionStart/End hook (install into ~/.claude/hooks/)
-├─ install.ps1               # optional installer helper
-├─ LICENSE
+│  └─ session-logger.js       # ClaudeSessions log hook → ~/.claude/hooks/
+├─ scripts/
+│  └─ setup-usage-task.ps1    # registers the ClaudeUsage polling task
+├─ install.ps1               # installs the ClaudeSessions skin + hook
+├─ LICENSE                   # MIT
 └─ README.md
 ```
 
----
+## Privacy & security
+
+- **Everything is local.** ClaudeSessions reads only `~/.claude/session-log/*.md`. ClaudeUsage reads `~/.claude/.credentials.json` (token, read‑only) and sends it only to `api.anthropic.com` over HTTPS; it stores only usage numbers.
+- The session logs contain your **session titles, working‑directory paths, and the first ~120 chars of up to 3 prompts** per session. Treat that folder like shell history — don't sync it somewhere sensitive.
+- Deleting a session row archives it to `deleted.md`; it does not delete the resumable Claude session.
+
+## Uninstall
+
+- **ClaudeSessions** — unload + delete the skin; remove the `SessionStart`/`SessionEnd` blocks from `settings.json` and delete `~/.claude/hooks/session-logger.js`; optionally delete `~/.claude/session-log/`.
+- **ClaudeUsage** — unload + delete the skin; `Unregister-ScheduledTask -TaskName 'ClaudeUsageWidget' -Confirm:$false`.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
-
-Built with [Claude Code](https://claude.com/claude-code).
+MIT — see [LICENSE](LICENSE). Built with [Claude Code](https://claude.com/claude-code).
 
 ---
 
 ## 한국어
 
-Windows 바탕화면에 최근 **[Claude Code](https://claude.com/claude-code)** 세션 목록을 보여주고, **더블클릭으로 이어하기(resume)**, **우클릭으로 삭제**할 수 있는 Rainmeter 위젯입니다.
+Windows에서 **[Claude Code](https://claude.com/claude-code)**용 Rainmeter 위젯 2종입니다.
 
-두 부분으로 구성됩니다:
-1. **세션 로거** — Claude Code의 `SessionStart`/`SessionEnd` 훅으로, 세션마다 한 줄씩 `~/.claude/session-log/YYYY-MM.md`에 기록합니다.
-2. **Rainmeter 스킨** — 그 로그를 읽어 스크롤 가능한 인터랙티브 목록으로 그립니다.
+- **ClaudeSessions** — 최근 Claude Code 세션 목록(제목·시간·작업 디렉토리). **더블클릭 resume / 우클릭 삭제**.
+- **ClaudeUsage** — claude.ai 구독 사용량(5시간/7일/Sonnet) 게이지·막대·리셋 카운트다운·스파크라인.
 
-### 동작 구조
-
-```
-Claude Code 세션 시작/종료
-        │  SessionStart / SessionEnd 훅
-        ▼
-hooks/session-logger.js  ──기록──►  ~/.claude/session-log/YYYY-MM.md
-                                            │  약 60초마다 읽음
-                                            ▼
-                            ClaudeSessions/parser.lua (Rainmeter Script measure)
-                                            │  UTF-16 LE로 기록
-                                            ▼
-                            data.inc  ──@Include──►  ClaudeSessions.ini (렌더링)
-```
-
-각 행: **1줄** 제목 + 시간·활동시간, **2줄** 전체 작업 디렉토리 경로. 모든 텍스트는 패널 폭에 맞춰 잘려서(`…`) 위젯 밖으로 넘치지 않습니다.
+> ⚠️ **ClaudeUsage 주의:** Claude Code가 저장한 OAuth 토큰을 읽어 **미공개** 엔드포인트(`/api/oauth/usage`)를 CLI인 척 호출합니다. 공식 API가 아니라 **예고 없이 막히거나 약관에 저촉될 수 있습니다.** 자기 책임으로 사용하세요. 토큰은 **읽기만**(수정 안 함), HTTPS로 `api.anthropic.com`에만 전송, **저장·로깅 안 함**. 불안하면 공식 페이지 <https://claude.ai/settings/usage>를 쓰세요. **ClaudeSessions는 로컬 로그만 읽어 이런 문제가 없습니다.**
 
 ### 요구 사항
-- Windows · [Rainmeter](https://www.rainmeter.net/) · [Node.js](https://nodejs.org/)(훅 실행용) · [Claude Code](https://claude.com/claude-code)(이어하기엔 `claude` CLI 필요)
+Windows · [Rainmeter](https://www.rainmeter.net/) · [Node.js](https://nodejs.org/)(세션 훅/폴러 실행) · [Claude Code](https://claude.com/claude-code)
 
-### 설치
-1. **스킨**: `ClaudeSessions` 폴더를 `%USERPROFILE%\Documents\Rainmeter\Skins\ClaudeSessions`에 복사. (폴더명 `ClaudeSessions` 유지 — 우클릭 삭제가 이 이름으로 새로고침합니다.)
-2. **훅**: `hooks/session-logger.js`를 `%USERPROFILE%\.claude\hooks\`에 복사하고, `~/.claude/settings.json`에 위 영어 섹션의 `SessionStart`/`SessionEnd` 블록을 추가. `YOUR_NAME`을 본인 사용자명으로, `node`가 PATH에 없으면 `node.exe` 전체 경로로 바꾸세요. (또는 `install.ps1` 실행 → 파일 복사 + 붙여넣을 스니펫 출력.)
-3. Rainmeter에서 새로고침 후 스킨 로드.
-4. 이후 Claude Code를 쓰면 세션이 기록되어 목록이 채워집니다. (훅 설치 **이후** 세션만 표시됩니다 — 처음엔 비어 있습니다.)
+### ClaudeSessions 설치
+1. `ClaudeSessions` 폴더를 `%USERPROFILE%\Documents\Rainmeter\Skins\ClaudeSessions`에 복사(폴더명 유지).
+2. `hooks/session-logger.js`를 `%USERPROFILE%\.claude\hooks\`에 복사하고, `~/.claude/settings.json`에 위 영어 섹션의 `SessionStart`/`SessionEnd` 블록 추가(`YOUR_NAME`을 본인 사용자명으로, `node`가 PATH에 없으면 전체 경로로). **Claude Code 재시작.**
+3. Rainmeter에서 새로고침 후 로드. (훅 설치 **이후** 세션부터 기록 — 처음엔 비어 있음.)
+4. 또는 레포 루트에서 `install.ps1` 실행(스킨·훅 복사 + 스니펫 출력).
 
-### 사용
-- **더블클릭** → 그 세션을 원래 폴더에서 `claude --resume`
-- **우클릭** → 그 로그 항목 삭제(확인창, `deleted.md`에 백업 — 복구 가능). 로그 항목만 지우며 실제 Claude 세션은 남아 터미널에서 resume 가능.
-- **휠** 스크롤 · **휠클릭** 맨 위로 · **헤더 클릭** 이번 달 로그 열기
+**사용:** 더블클릭=resume, 우클릭=삭제(확인창, `deleted.md`에 백업), 휠=스크롤, 휠클릭=맨 위, 헤더 클릭=로그 열기.
+
+### ClaudeUsage 설치
+1. Claude Code에 로그인(토큰 존재) + Node.js 설치.
+2. `ClaudeUsage` 폴더를 `Skins\ClaudeUsage`에 복사.
+3. 5분 폴링 작업 등록: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\setup-usage-task.ps1` (관리자 불필요). 제거: `Unregister-ScheduledTask -TaskName 'ClaudeUsageWidget' -Confirm:$false`.
+4. Rainmeter에서 로드. 첫 수집 후 ~30초 내 표시.
+
+**문제 해결:** "대기 중…"이 계속 → 작업 실행/`current.json`/Node 확인. "토큰 만료" → Claude Code 한 번 실행해 토큰 갱신. "데이터 지연" → 작업 미실행.
 
 ### 설정
-- 색상/폭: `ClaudeSessions.ini`의 `[Variables]`. 표시 개수: `parser.lua`의 `MAXROWS`(기본 8). `MAXROWS`를 바꾸면 `.ini`의 행 섹션도 같이 추가/삭제하세요.
-- UI 언어 변경: `parser.lua`와 `session-logger.js`의 한글 문자열을 수정. 인코딩 유지(.ini/data.inc는 UTF‑16 LE, delete-session.ps1은 UTF‑8 BOM).
-
-### 문제 해결
-- **빈 목록**: 훅 설치 후 세션을 열고 닫아야 채워집니다(최대 ~60초). `~/.claude/session-log/`에 `.md`가 생기는지 확인. 안 생기면 훅 미작동 → `settings.json`·`node` 확인 후 **Claude Code 재시작**. 오류는 `lua-error.txt`/`delete-error.txt` 확인.
-- **resume 실패**: `claude`가 PATH에 있거나 `%USERPROFILE%\.local\bin\claude.exe`에 있어야 함. 원래 작업 폴더가 사라졌으면 불가.
-- **한글 깨짐**: 파일 인코딩 확인(.ini·data.inc = UTF‑16 LE, delete-session.ps1 = UTF‑8 BOM).
+- 색상/폭: 각 위젯 `.ini`의 `[Variables]`. 표시 개수: ClaudeSessions `parser.lua`의 `MAXROWS`(기본 8). 폴링 주기: ClaudeUsage 예약 작업.
+- UI 언어 변경 시 `parser.lua`/`session-logger.js`/`usage.lua`의 한글 문자열 수정. 인코딩 유지(.ini·data.inc = UTF‑16 LE, delete-session.ps1 = UTF‑8 BOM).
 
 ### 개인정보
-- 전부 **로컬**입니다. 로그(.md)에는 세션 제목·작업 경로·세션당 최대 3개 프롬프트의 앞 ~120자가 담깁니다. 셸 히스토리처럼 취급하세요(민감하면 공유/클라우드 동기화 주의).
+전부 **로컬**. 세션 로그엔 제목·작업 경로·프롬프트 앞 ~120자가 담깁니다. ClaudeUsage는 토큰을 읽기 전용으로만 사용하고 사용량 숫자만 저장합니다.
 
-MIT 라이선스. [Claude Code](https://claude.com/claude-code)로 제작.
+MIT 라이선스 · [Claude Code](https://claude.com/claude-code)로 제작.

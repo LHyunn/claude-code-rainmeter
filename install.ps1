@@ -1,38 +1,42 @@
-# Claude Sessions widget — installer helper.
-# Copies the skin and the session-logger hook into place, then prints the
-# settings.json snippet to paste. Does NOT edit settings.json automatically.
+# Claude Code Rainmeter widgets - installer helper.
+# Copies both skins into your Rainmeter Skins folder and installs the
+# ClaudeSessions log hook, then prints the settings.json snippet to paste.
+# It does NOT edit settings.json, and does NOT register the ClaudeUsage task
+# (run scripts\setup-usage-task.ps1 for that) - both are opt-in.
 #
 # Usage:  powershell -NoProfile -ExecutionPolicy Bypass -File install.ps1
 
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
+$skins = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'Rainmeter\Skins'
 
-$skinDst = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'Rainmeter\Skins\ClaudeSessions'
-$hookDir = Join-Path $env:USERPROFILE '.claude\hooks'
-$hookDst = Join-Path $hookDir 'session-logger.js'
-
-Write-Host "Claude Sessions — installer" -ForegroundColor Cyan
+Write-Host "Claude Code Rainmeter widgets - installer" -ForegroundColor Cyan
 Write-Host ""
 
-# 1) skin
-New-Item -ItemType Directory -Force -Path $skinDst | Out-Null
-Copy-Item (Join-Path $root 'ClaudeSessions\*') $skinDst -Recurse -Force
-Write-Host "[ok] skin  -> $skinDst" -ForegroundColor Green
+# 1) skins
+foreach ($name in 'ClaudeSessions', 'ClaudeUsage') {
+  $dst = Join-Path $skins $name
+  New-Item -ItemType Directory -Force -Path $dst | Out-Null
+  Copy-Item (Join-Path $root "$name\*") $dst -Recurse -Force
+  Write-Host "[ok] skin  -> $dst" -ForegroundColor Green
+}
 
-# 2) hook
+# 2) ClaudeSessions hook
+$hookDir = Join-Path $env:USERPROFILE '.claude\hooks'
+$hookDst = Join-Path $hookDir 'session-logger.js'
 New-Item -ItemType Directory -Force -Path $hookDir | Out-Null
 Copy-Item (Join-Path $root 'hooks\session-logger.js') $hookDst -Force
 Write-Host "[ok] hook  -> $hookDst" -ForegroundColor Green
 
-# 3) settings.json snippet (resolve node for the user)
+# 3) settings.json snippet for the hook
 $node = (Get-Command node -ErrorAction SilentlyContinue).Source
 $nodeCmd = if ($node) { 'node' } else { 'C:\Program Files\nodejs\node.exe' }
 $argPath = $hookDst.Replace('\', '\\')
 $settings = Join-Path $env:USERPROFILE '.claude\settings.json'
 
 Write-Host ""
-Write-Host "Next step: merge this into $settings (under a top-level `"hooks`" key):" -ForegroundColor Yellow
-Write-Host ""
+Write-Host "== ClaudeSessions ==" -ForegroundColor Cyan
+Write-Host "Merge this into $settings (under a top-level `"hooks`" key), then restart Claude Code:" -ForegroundColor Yellow
 $snippet = @"
   "hooks": {
     "SessionStart": [
@@ -44,9 +48,13 @@ $snippet = @"
   }
 "@
 Write-Host $snippet -ForegroundColor Gray
+if (-not $node) { Write-Host "(node not on PATH; snippet uses the default path - adjust if needed.)" -ForegroundColor DarkYellow }
+
 Write-Host ""
-if (-not $node) {
-  Write-Host "(node was not found on PATH; the snippet uses the default install path - adjust if needed.)" -ForegroundColor DarkYellow
-}
-Write-Host "Then: restart Claude Code (to load the hook), and in Rainmeter refresh + load ClaudeSessions." -ForegroundColor Yellow
-Write-Host "The list fills in as you open/close Claude Code sessions." -ForegroundColor Yellow
+Write-Host "== ClaudeUsage (optional) ==" -ForegroundColor Cyan
+Write-Host "Reads your Claude Code OAuth token and calls an UNDOCUMENTED usage endpoint - see the README warning." -ForegroundColor DarkYellow
+Write-Host "To enable it, register the 5-minute polling task:" -ForegroundColor Yellow
+Write-Host "    powershell -NoProfile -ExecutionPolicy Bypass -File `"$($root)\scripts\setup-usage-task.ps1`"" -ForegroundColor Gray
+
+Write-Host ""
+Write-Host "Finally: in Rainmeter, Refresh all, then load ClaudeSessions / ClaudeUsage from Manage." -ForegroundColor Yellow
