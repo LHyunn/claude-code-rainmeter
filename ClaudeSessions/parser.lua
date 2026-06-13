@@ -8,6 +8,24 @@ local function sessionLogDir()
   return (os.getenv('USERPROFILE') or os.getenv('HOME') or '') .. '\\.claude\\session-log'
 end
 
+-- UI 문자열. 스킨 변수 Lang=en|ko 로 언어 선택(기본 en).
+local STR = {
+  en = { noSessions = 'No sessions logged yet', autolog = 'Sessions are logged automatically when they close',
+         noContent = '(no content)', today = 'Today', total = 'Total', shown = 'shown',
+         tooltip = 'Double-click → resume   ·   Right-click → delete',
+         ctxFolder = 'Open log folder', ctxMonth = "Open this month's log" },
+  ko = { noSessions = '아직 기록된 세션이 없습니다', autolog = '세션을 닫으면 자동으로 기록됩니다',
+         noContent = '(내용 없음)', today = '오늘', total = '전체', shown = '표시 중',
+         tooltip = '더블클릭 → resume   ·   우클릭 → 삭제',
+         ctxFolder = '로그 폴더 열기', ctxMonth = '이번 달 로그 열기' },
+}
+
+-- 기간 표기를 현재 언어로 변환(옛 한글 로그 ↔ 영어 로그 모두 처리; 숫자는 그대로, 단위만 치환).
+local function fmtDur(s, lang)
+  if lang == 'ko' then return (s:gsub('d', '일'):gsub('h', '시간'):gsub('m', '분')) end
+  return (s:gsub('일', 'd'):gsub('시간', 'h'):gsub('분', 'm'))
+end
+
 local function readAll(p, mode)
   local f = io.open(p, mode or 'r')
   if not f then return nil end
@@ -50,7 +68,7 @@ local function sanitize(s)
   return (s:gsub('#', '＃'):gsub('%[', '［'):gsub('%]', '］'))
 end
 
-local function timeline(e)
+local function timeline(e, lang)
   local sd, stm = e.start:match('^(%d+%-%d+%-%d+) (%d+:%d+)$')
   local ed, etm = e.endt:match('^(%d+%-%d+%-%d+) (%d+:%d+)$')
   local t
@@ -63,7 +81,7 @@ local function timeline(e)
   else
     t = e.endt
   end
-  if e.dur ~= '' then t = t .. '  ·  ' .. (e.dur:gsub('일', 'd'):gsub('시간', 'h'):gsub('분', 'm')) end
+  if e.dur ~= '' then t = t .. '  ·  ' .. fmtDur(e.dur, lang) end
   return t
 end
 
@@ -107,6 +125,8 @@ end
 
 function RealUpdate()
   local logDir = sessionLogDir()
+  local lang = (SKIN:GetVariable('Lang') == 'ko') and 'ko' or 'en'
+  local T = STR[lang]
   local incPath = SKIN:GetVariable('CURRENTPATH') .. 'data.inc'
   local y, m = tonumber(os.date('%Y')), tonumber(os.date('%m'))
   local cur = string.format('%04d-%02d', y, m)
@@ -138,11 +158,11 @@ function RealUpdate()
       shown = shown + 1
       local title = e.title
       if title == '' or title == '(제목 없음)' or title == '(untitled)' then
-        title = e.bullets[1] or '(no content)'
+        title = e.bullets[1] or T.noContent
       end
       -- 폭 제한·넘침 방지는 ini의 W+ClipString이 픽셀 단위로 처리(글자수 추정보다 정확).
       v[#v + 1] = 'Title' .. i .. '=' .. sanitize(title)
-      v[#v + 1] = 'Meta' .. i .. '=' .. sanitize(timeline(e))
+      v[#v + 1] = 'Meta' .. i .. '=' .. sanitize(timeline(e, lang))
       v[#v + 1] = 'Path' .. i .. '=' .. sanitize(e.cwd or '') -- 전체 작업 디렉토리 경로
       v[#v + 1] = 'Id' .. i .. '=' .. (e.id or '')
       v[#v + 1] = 'Cwd' .. i .. '=' .. (e.cwd or '')
@@ -151,8 +171,8 @@ function RealUpdate()
     else
       if i == 1 then
         shown = 1
-        v[#v + 1] = 'Title1=No sessions logged yet'
-        v[#v + 1] = 'Meta1=Sessions are logged automatically when they close'
+        v[#v + 1] = 'Title1=' .. T.noSessions
+        v[#v + 1] = 'Meta1=' .. T.autolog
         v[#v + 1] = 'Path1='
         v[#v + 1] = 'Id1='
         v[#v + 1] = 'Cwd1='
@@ -169,14 +189,17 @@ function RealUpdate()
       end
     end
   end
-  local stats = 'Today ' .. nToday .. '  ·  Total ' .. #list
+  local stats = T.today .. ' ' .. nToday .. '  ·  ' .. T.total .. ' ' .. #list
   if ofs > 0 then
-    stats = '⌃ ' .. (ofs + 1) .. '–' .. math.min(#list, ofs + MAXROWS) .. ' shown  ·  ' .. stats
+    stats = '⌃ ' .. (ofs + 1) .. '–' .. math.min(#list, ofs + MAXROWS) .. ' ' .. T.shown .. '  ·  ' .. stats
   end
   v[#v + 1] = 'HeaderStats=' .. stats
   v[#v + 1] = 'ScrollOfs=' .. ofs
   v[#v + 1] = 'MonthFile=' .. cur
   v[#v + 1] = 'LogDir=' .. logDir -- ContextAction(로그 폴더/파일 열기)용 — 자동 해석된 경로
+  v[#v + 1] = 'ToolTip=' .. T.tooltip
+  v[#v + 1] = 'CtxFolder=' .. T.ctxFolder
+  v[#v + 1] = 'CtxMonth=' .. T.ctxMonth
   v[#v + 1] = 'BgH=' .. (94 + shown * 74 + 10) -- 2줄 카드(제목+시간 / 전체경로) 행 간격
   v[#v + 1] = ''
 

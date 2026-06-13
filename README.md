@@ -26,6 +26,23 @@ You can install either one independently — they share nothing except this repo
 
 ---
 
+## Language (English / 한국어)
+
+Both widgets ship in **English** and include a built‑in **Korean** translation. To switch, set `Lang` in the skin's `.ini` `[Variables]` and refresh:
+
+| `Lang` | UI |
+|---|---|
+| `en` | English (default) |
+| `ko` | 한국어 |
+
+`ClaudeSessions/ClaudeSessions.ini` and `ClaudeUsage/ClaudeUsage.ini` each have their own `Lang`, so you can set them independently. After changing it, refresh in Rainmeter (tray icon → **Refresh all**, or refresh that skin). Everything on screen — labels, status notes, reset countdowns, session durations, tooltips, and the right‑click menu — follows `Lang`.
+
+> Session **titles** and **folder paths** come from your own sessions, so they show in whatever language you used. The session‑log files are written in English regardless of `Lang`; the widget localizes only what it displays.
+
+To add another language, copy the `en`/`ko` block in the `STR` table near the top of `parser.lua` (ClaudeSessions) / `usage.lua` (ClaudeUsage) and translate the strings.
+
+---
+
 # ClaudeSessions
 
 A scrollable list of your recent Claude Code sessions. Two pieces:
@@ -251,7 +268,7 @@ Windows · [Rainmeter](https://www.rainmeter.net/) · [Node.js](https://nodejs.o
 
 ### 설정
 - 색상/폭: 각 위젯 `.ini`의 `[Variables]`. 표시 개수: ClaudeSessions `parser.lua`의 `MAXROWS`(기본 8). 폴링 주기: ClaudeUsage 예약 작업.
-- UI 언어 변경 시 `parser.lua`/`session-logger.js`/`usage.lua`의 한글 문자열 수정. 인코딩 유지(.ini·data.inc = UTF‑16 LE, delete-session.ps1 = UTF‑8 BOM).
+- **언어 전환(영어 ↔ 한국어)**: 각 위젯 `.ini`의 `[Variables]`에서 `Lang=en` ↔ `Lang=ko` 로 바꾸고 새로고침. 두 위젯은 독립적으로 설정됩니다. 다른 언어 추가는 `parser.lua`/`usage.lua` 상단 `STR` 표에 블록을 추가하세요. (파일 인코딩 유지: `.ini`·`data.inc` = UTF‑16 LE, `delete-session.ps1` = UTF‑8 BOM.)
 
 ### 개인정보
 전부 **로컬**. 세션 로그엔 제목·작업 경로·프롬프트 앞 ~120자가 담깁니다. ClaudeUsage는 토큰을 읽기 전용으로만 사용하고 사용량 숫자만 저장합니다.

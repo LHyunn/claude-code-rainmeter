@@ -4,11 +4,29 @@
 local CHART_W = 716
 local CHART_H = 86
 local BAR_W = 240
--- 메트릭: {키, 라벨, 차트 시간창(ms)}
+-- 메트릭: {키, 히스토리키, 라벨키, 차트 시간창(ms)}
 local METRICS = {
-  { id = '5', hk = 'h5', label = 'Current session  ·  5-hour window', win = 6 * 3600 * 1000 },
-  { id = '7', hk = 'd7', label = 'Weekly usage  ·  all models', win = 7 * 86400 * 1000 },
-  { id = 'S', hk = 's7', label = 'Weekly usage  ·  Sonnet', win = 7 * 86400 * 1000 },
+  { id = '5', hk = 'h5', lk = 'label5', win = 6 * 3600 * 1000 },
+  { id = '7', hk = 'd7', lk = 'label7', win = 7 * 86400 * 1000 },
+  { id = 'S', hk = 's7', lk = 'labelS', win = 7 * 86400 * 1000 },
+}
+
+-- UI 문자열. 스킨 변수 Lang=en|ko 로 언어 선택(기본 en).
+local STR = {
+  en = {
+    label5 = 'Current session  ·  5-hour window', label7 = 'Weekly usage  ·  all models', labelS = 'Weekly usage  ·  Sonnet',
+    resetting = 'resetting…', resetD = 'resets in %dd %dh', resetH = 'resets in %dh %dm', resetM = 'resets in %dm',
+    tokenExpired = '⚠ Token expired — run Claude Code to refresh', fetchFail = '⚠ Fetch failed (',
+    waiting = 'Waiting…', delayed = '⚠ Data delayed', updated = 'updated ', collecting = 'collecting data…',
+    header = 'Claude Usage', ctxRefresh = 'Refresh now', ctxOpen = 'Open usage page',
+  },
+  ko = {
+    label5 = '현재 세션  ·  5시간 창', label7 = '주간 사용량  ·  전체 모델', labelS = '주간 사용량  ·  Sonnet',
+    resetting = '리셋 중…', resetD = '%d일 %d시간 후 리셋', resetH = '%d시간 %d분 후 리셋', resetM = '%d분 후 리셋',
+    tokenExpired = '⚠ 토큰 만료 — Claude Code 실행 시 자동 갱신', fetchFail = '⚠ 가져오기 실패 (',
+    waiting = '대기 중…', delayed = '⚠ 데이터 지연', updated = '갱신 ', collecting = '데이터 수집 중…',
+    header = 'Claude 사용량', ctxRefresh = '지금 새로고침', ctxOpen = '사용량 페이지 열기',
+  },
 }
 
 local function readAll(p, mode)
@@ -47,14 +65,14 @@ local function fmtClock(ms)
   return os.date('%H:%M', math.floor(ms / 1000))
 end
 
-local function countdown(ms, now)
+local function countdown(ms, now, T)
   if not ms then return '' end
   local s = math.floor((ms - now) / 1000)
-  if s <= 0 then return 'resetting…' end
+  if s <= 0 then return T.resetting end
   local d = math.floor(s / 86400); local h = math.floor((s % 86400) / 3600); local m = math.floor((s % 3600) / 60)
-  if d > 0 then return string.format('resets in %dd %dh', d, h) end
-  if h > 0 then return string.format('resets in %dh %dm', h, m) end
-  return string.format('resets in %dm', m)
+  if d > 0 then return string.format(T.resetD, d, h) end
+  if h > 0 then return string.format(T.resetH, h, m) end
+  return string.format(T.resetM, m)
 end
 
 local function levelRGB(u)
@@ -101,6 +119,7 @@ end
 
 function RealUpdate()
   local base = SKIN:GetVariable('CURRENTPATH')
+  local T = STR[SKIN:GetVariable('Lang')] or STR.en
   local cur = readAll(base .. 'data\\current.json') or ''
   local realNow = os.time() * 1000
 
@@ -134,12 +153,12 @@ function RealUpdate()
     local u, reset = metric(cur, M.id == '5' and 'five_hour' or M.id == '7' and 'seven_day' or 'sonnet')
     local id = M.id
     local rgb = levelRGB(u)
-    set('Label' .. id, M.label)
+    set('Label' .. id, T[M.lk])
     set('Pct' .. id, u == nil and '—' or (string.format('%d', math.floor(u + 0.5)) .. '%'))
     set('Color' .. id, rgb .. ',255')
     set('ColorA' .. id, rgb .. ',40')
     set('BarW' .. id, tostring(math.max(1, math.floor(BAR_W * clampU(u or 0) / 100))))
-    set('Reset' .. id, reset and countdown(reset, now) or '')
+    set('Reset' .. id, reset and countdown(reset, now, T) or '')
     local line, area, dx, dy, drawable = chartPaths(hist, M.hk, M.win, now)
     if drawable then
       set('Line' .. id, line)
@@ -154,19 +173,22 @@ function RealUpdate()
       set('Area' .. id, '0,86 | LineTo 0,86 | ClosePath 1')
       set('Dot' .. id .. 'X', '0')
       set('Dot' .. id .. 'Y', '86')
-      set('ChartNote' .. id, 'collecting data…')
+      set('ChartNote' .. id, T.collecting)
     end
   end
 
   -- 헤더 상태
   local note = ''
-  if status == 'token_expired' then note = '⚠ Token expired — run Claude Code to refresh'
-  elseif status ~= 'ok' and status ~= 'none' then note = '⚠ Fetch failed (' .. status .. ')'
-  elseif status == 'none' then note = 'Waiting…' end
-  local upd = fetched and ('updated ' .. fmtClock(fetched)) or ''
+  if status == 'token_expired' then note = T.tokenExpired
+  elseif status ~= 'ok' and status ~= 'none' then note = T.fetchFail .. status .. ')'
+  elseif status == 'none' then note = T.waiting end
+  local upd = fetched and (T.updated .. fmtClock(fetched)) or ''
   -- 데이터가 오래되면(>11분) 흐릿 표시용 플래그
-  if checked and (realNow - checked) > 11 * 60 * 1000 and note == '' then note = '⚠ Data delayed' end
+  if checked and (realNow - checked) > 11 * 60 * 1000 and note == '' then note = T.delayed end
   set('HeaderNote', (note ~= '' and (note .. '   ') or '') .. upd)
+  set('HeaderTitle', T.header)
+  set('CtxRefresh', T.ctxRefresh)
+  set('CtxOpen', T.ctxOpen)
 
   local content = u16(table.concat(v, '\r\n') .. '\r\n')
   local incPath = base .. 'data.inc'
