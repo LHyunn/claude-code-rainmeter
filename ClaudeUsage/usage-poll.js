@@ -1,6 +1,6 @@
 // ClaudeUsage 폴러 — claude.ai 구독 사용량(/api/oauth/usage)을 5분마다 수집.
 // Claude Code가 저장한 OAuth accessToken을 '읽기 전용'으로만 사용(.credentials.json 미수정).
-// 출력: data/current.json (현재 스냅샷), data/history.jsonl (시계열, 8일 보관).
+// 출력: data/current.json (현재 스냅샷), data/history.jsonl (시계열, 15일 보관).
 'use strict';
 const fs = require('fs');
 const os = require('os');
@@ -80,8 +80,8 @@ function main() {
         let lines = [];
         try { lines = fs.readFileSync(HIST, 'utf8').split('\n').filter(Boolean); } catch (e) {}
         lines.push(JSON.stringify(row));
-        // 8일 초과 데이터 정리
-        const cutoff = now - 8 * 864e5;
+        // 15일 초과 데이터 정리 (차트 x축 2주 = 14일 + 1일 여유)
+        const cutoff = now - 15 * 864e5;
         lines = lines.filter(L => { try { return JSON.parse(L).t >= cutoff; } catch (e) { return false; } });
         try { writeFileAtomic(HIST, lines.join('\n') + '\n'); } catch (e) {}
       }

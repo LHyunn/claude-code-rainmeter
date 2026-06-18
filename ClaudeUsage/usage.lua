@@ -6,9 +6,9 @@ local CHART_H = 86
 local BAR_W = 240
 -- 메트릭: {키, 히스토리키, 라벨키, 차트 시간창(ms)}
 local METRICS = {
-  { id = '5', hk = 'h5', lk = 'label5', win = 6 * 3600 * 1000 },
-  { id = '7', hk = 'd7', lk = 'label7', win = 7 * 86400 * 1000 },
-  { id = 'S', hk = 's7', lk = 'labelS', win = 7 * 86400 * 1000 },
+  { id = '5', hk = 'h5', lk = 'label5', win = 7 * 86400 * 1000 },
+  { id = '7', hk = 'd7', lk = 'label7', win = 14 * 86400 * 1000 },
+  { id = 'S', hk = 's7', lk = 'labelS', win = 14 * 86400 * 1000 },
 }
 
 -- UI 문자열. 스킨 변수 Lang=en|ko 로 언어 선택(기본 en).
@@ -84,6 +84,21 @@ end
 
 local function clampU(u) if u < 0 then return 0 elseif u > 100 then return 100 end return u end
 
+-- 한 픽셀 열에 정점이 여러 개여도 화면상 의미가 없는데, 주간 차트는 표본이 수천 개라
+-- path 문자열이 32KB를 넘으면 Rainmeter가 그 Shape를 통째로 렌더하지 못한다(주간 차트만
+-- 안 보이던 원인). x 2픽셀마다 한 점으로 솎아 path 길이를 묶는다(픽셀 열의 가장 최근 표본
+-- 유지, 마지막 점은 항상 보존되어 Dot 좌표와 일치).
+local function decimate(pts)
+  if #pts <= 2 then return pts end
+  local out, lastb = {}, nil
+  for i = 1, #pts do
+    local b = math.floor(pts[i][1] / 2)
+    if b ~= lastb then out[#out + 1] = pts[i]; lastb = b
+    else out[#out] = pts[i] end
+  end
+  return out
+end
+
 -- 시계열 → (라인 path, 영역 path, 마지막점 x,y, 그릴 수 있는지)
 local function chartPaths(hist, hk, win, now)
   local pts = {}
@@ -103,6 +118,7 @@ local function chartPaths(hist, hk, win, now)
   if #pts < 2 or (tmax - tmin) < 30 * 60 * 1000 then
     return nil, nil, (pts[#pts] and pts[#pts][1] or nil), (pts[#pts] and pts[#pts][2] or nil), false
   end
+  pts = decimate(pts)
   local seg = { string.format('%.1f,%.1f', pts[1][1], pts[1][2]) }
   for i = 2, #pts do seg[#seg + 1] = string.format('LineTo %.1f,%.1f', pts[i][1], pts[i][2]) end
   local line = table.concat(seg, ' | ')
